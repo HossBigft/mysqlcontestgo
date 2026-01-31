@@ -126,28 +126,33 @@ var rootCmd = &cobra.Command{
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%v)/", cfg.User, cfg.Pass, cfg.Server, cfg.Port)
 		fmt.Println("\nDatabase DSN: " + fmt.Sprintf("%s:%s@tcp(%s:%v)/", cfg.User, maskedPass, cfg.Server, cfg.Port))
 
-		address := fmt.Sprintf("%s:%d", cfg.Server, cfg.Port)
-		conn, err := net.DialTimeout("tcp", address, 5*time.Second)
-		if err != nil {
-			var dnsErr *net.DNSError
+		var resolvedIP string
 
-			if errors.As(err, &dnsErr) {
-				fmt.Printf(
-					"DNS resolution failed for domain %s: %v\n",
-					cfg.Server,
-					dnsErr,
-				)
-			} else {
-				fmt.Printf(
-					"TCP connection failed to %s: %v\n",
-					address,
-					err,
-				)
+		if net.ParseIP(cfg.Server) == nil {
+			ips, err := net.LookupHost(cfg.Server)
+			if err != nil {
+				var dnsErr *net.DNSError
+				if errors.As(err, &dnsErr) {
+					fmt.Printf("DNS resolution failed for domain %s: %v\n", cfg.Server, dnsErr)
+				} else {
+					fmt.Printf("Unknown error resolving domain %s: %v\n", cfg.Server, err)
+				}
+				return
 			}
+
+			fmt.Printf("Domain %s resolved to IP(s): %v\n", cfg.Server, ips)
+			resolvedIP = ips[0]
+		} else {
+			resolvedIP = cfg.Server
+		}
+
+		conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", resolvedIP, cfg.Port), 5*time.Second)
+		if err != nil {
+			fmt.Printf("TCP connection failed to %s:%d: %v\n", resolvedIP, cfg.Port, err)
 			return
 		}
 
-		fmt.Printf("Host reachable: %s\n", address)
+		fmt.Printf("Host reachable: %s:%d\n", resolvedIP, cfg.Port)
 		conn.Close()
 
 		dbcon, err := sql.Open("mysql", dsn)
@@ -180,7 +185,7 @@ var rootCmd = &cobra.Command{
 		}
 		defer grants.Close()
 
-		fmt.Printf("\nGrants for %s:\n",cfg.User)
+		fmt.Printf("\nGrants for %s:\n", cfg.User)
 		for grants.Next() {
 			var grant string
 			if err := grants.Scan(&grant); err != nil {
