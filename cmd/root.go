@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"errors"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
@@ -71,13 +72,15 @@ var rootCmd = &cobra.Command{
 	Short: "App to test sql connection. On first run asks connection data and saves it.",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		cfg, err := loadConfig(configFilename)
-		if err != nil {
-			fmt.Println("Error loading config:", err)
-		} else {
-			fmt.Println("Loaded config:", configFilename)
-		}
+		reconfigureFlag, _ := cmd.Flags().GetBool("reconfigure")
+		cfg := &DBConfig{}
 
+		if !reconfigureFlag {
+			loadedConfig, err := loadConfig(configFilename)
+			if err == nil {
+				cfg = loadedConfig
+			}
+		}
 		if host, _ := cmd.Flags().GetString("host"); host != "" {
 			cfg.Server = host
 		}
@@ -89,6 +92,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		if !cfg.IsComplete() {
+
 			cfg.Server = promptIfEmpty("DB Host", cfg.Server)
 			cfg.User = promptIfEmpty("DB User", cfg.User)
 			cfg.Pass = promptIfEmpty("DB Password", cfg.Pass)
@@ -99,10 +103,10 @@ var rootCmd = &cobra.Command{
 				if portInput != "" {
 					if p, err := strconv.Atoi(portInput); err == nil && p > 0 && p <= 65535 {
 						cfg.Port = p
-					} else {
-						fmt.Println("Invalid port, using default 3306")
-						cfg.Port = 3306
 					}
+				} else {
+					fmt.Println("Invalid port, using default 3306")
+					cfg.Port = 3306
 				}
 			}
 
@@ -125,11 +129,26 @@ var rootCmd = &cobra.Command{
 		address := fmt.Sprintf("%s:%d", cfg.Server, cfg.Port)
 		conn, err := net.DialTimeout("tcp", address, 5*time.Second)
 		if err != nil {
-			fmt.Printf("Cannot reach %s: %v\n", address, err)
-		} else {
-			fmt.Printf("Host reachable: %s\n", address)
-			conn.Close()
+			var dnsErr *net.DNSError
+
+			if errors.As(err, &dnsErr) {
+				fmt.Printf(
+					"DNS resolution failed for domain %s: %v\n",
+					cfg.Server,
+					dnsErr,
+				)
+			} else {
+				fmt.Printf(
+					"TCP connection failed to %s: %v\n",
+					address,
+					err,
+				)
+			}
+			return
 		}
+
+		fmt.Printf("Host reachable: %s\n", address)
+		conn.Close()
 
 		dbcon, err := sql.Open("mysql", dsn)
 		if err != nil {
@@ -172,4 +191,5 @@ func init() {
 	rootCmd.Flags().StringP("server", "s", "", "Database server IP/Domain")
 	rootCmd.Flags().StringP("user", "u", "", "Database user")
 	rootCmd.Flags().IntP("port", "p", 0, "Database port")
+	rootCmd.Flags().BoolP("reconfigure", "r", false, "Prompt for config values again")
 }
