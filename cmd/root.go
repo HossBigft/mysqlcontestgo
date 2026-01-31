@@ -7,8 +7,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
+	"net"
 	"strconv"
+	"strings"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
@@ -119,6 +121,15 @@ var rootCmd = &cobra.Command{
 
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%v)/", cfg.User, cfg.Pass, cfg.Server, cfg.Port)
 		fmt.Println("Database DSN: " + fmt.Sprintf("%s:%s@tcp(%s:%v)/", cfg.User, maskedPass, cfg.Server, cfg.Port))
+
+		address := fmt.Sprintf("%s:%d", cfg.Server, cfg.Port)
+		conn, err := net.DialTimeout("tcp", address, 5*time.Second)
+		if err != nil {
+			fmt.Printf("Cannot reach %s: %v\n", address, err)
+		} else {
+			fmt.Printf("Host reachable: %s\n", address)
+			conn.Close()
+		}
 
 		dbcon, err := sql.Open("mysql", dsn)
 		if err != nil {
