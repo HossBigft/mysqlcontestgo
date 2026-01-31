@@ -4,7 +4,7 @@
 SRC_FILE="main.go"
 
 
-BASE_NAME=$(basename "$SRC_FILE" .go)
+BASE_NAME=$(grep "^module " go.mod | awk '{print $2}')
 
 
 BUILD_DIR="build"
