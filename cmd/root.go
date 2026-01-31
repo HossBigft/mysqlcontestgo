@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"strconv"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
@@ -93,10 +94,13 @@ var rootCmd = &cobra.Command{
 				fmt.Printf("DB Port (default 3306): ")
 				var portInput string
 				fmt.Scanln(&portInput)
-				if portInput == "" {
-					cfg.Port = 3306
-				} else {
-					fmt.Sscanf(portInput, "%d", &cfg.Port)
+				if portInput != "" {
+					if p, err := strconv.Atoi(portInput); err == nil && p > 0 && p <= 65535 {
+						cfg.Port = p
+					} else {
+						fmt.Println("Invalid port, using default 3306")
+						cfg.Port = 3306
+					}
 				}
 			}
 
