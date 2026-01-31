@@ -14,14 +14,14 @@ import (
 )
 
 type DBConfig struct {
-	Host string `json:"host"`
-	User string `json:"user"`
-	Pass string `json:"pass"`
-	Port int    `json:"port"`
+	Server string `json:"server"`
+	User   string `json:"user"`
+	Pass   string `json:"pass"`
+	Port   int    `json:"port"`
 }
 
 func (cfg *DBConfig) IsComplete() bool {
-	return cfg.Host != "" && cfg.User != "" && cfg.Pass != "" && cfg.Port != 0
+	return cfg.Server != "" && cfg.User != "" && cfg.Pass != "" && cfg.Port != 0
 }
 
 const CONFIG_FILENAME = "dbcontest.json"
@@ -61,12 +61,11 @@ func promptIfEmpty(fieldName string, current string) string {
 	fmt.Printf("%s: ", fieldName)
 	input, _ := reader.ReadString('\n')
 	return strings.TrimSpace(input)
-
 }
 
 var rootCmd = &cobra.Command{
 	Use:   "mysqlcontestgo",
-	Short: "A brief description of your application",
+	Short: "App to test sql connection. On first run asks for data for connection.",
 	Run: func(cmd *cobra.Command, args []string) {
 
 		cfg, err := loadConfig(CONFIG_FILENAME)
@@ -76,8 +75,18 @@ var rootCmd = &cobra.Command{
 			fmt.Println("Loaded config:", CONFIG_FILENAME)
 		}
 
+		if host, _ := cmd.Flags().GetString("host"); host != "" {
+			cfg.Server = host
+		}
+		if user, _ := cmd.Flags().GetString("user"); user != "" {
+			cfg.User = user
+		}
+		if port, _ := cmd.Flags().GetInt("port"); port != 0 {
+			cfg.Port = port
+		}
+
 		if !cfg.IsComplete() {
-			cfg.Host = promptIfEmpty("DB Host", cfg.Host)
+			cfg.Server = promptIfEmpty("DB Host", cfg.Server)
 			cfg.User = promptIfEmpty("DB User", cfg.User)
 			cfg.Pass = promptIfEmpty("DB Password", cfg.Pass)
 			if cfg.Port == 0 {
@@ -98,17 +107,17 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		dbhost := cfg.Host
+		dbserver := cfg.Server
 		dbuser := cfg.User
 		dbpass := cfg.Pass
 		dbport := cfg.Port
-		fmt.Println("DBHOST: " + dbhost)
+		fmt.Println("DBHOST: " + dbserver)
 		fmt.Println("DBUSER: " + dbuser)
 		fmt.Println("DBPASS: " + dbpass[:3])
 		fmt.Printf("DBPORT: %v\n", dbport)
 
-		dbDataSourceString := fmt.Sprintf("%s:%s@tcp(%s:%v)/", dbuser, dbpass, dbhost, dbport)
-		fmt.Println("Database DSN: " + fmt.Sprintf("%s:%s@tcp(%s:%v)/", dbuser, dbpass[:3], dbhost, dbport))
+		dbDataSourceString := fmt.Sprintf("%s:%s@tcp(%s:%v)/", dbuser, dbpass, dbserver, dbport)
+		fmt.Println("Database DSN: " + fmt.Sprintf("%s:%s@tcp(%s:%v)/", dbuser, dbpass[:3], dbserver, dbport))
 
 		dbcon, err := sql.Open("mysql", dbDataSourceString)
 		if err != nil {
@@ -147,4 +156,7 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.Flags().StringP("server", "s", "", "Database host IP/Domain")
+	rootCmd.Flags().StringP("user", "u", "", "Database user")
+	rootCmd.Flags().IntP("port", "p", 0, "Database port")
 }

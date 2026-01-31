@@ -1,6 +1,6 @@
 {
-  "host": "test.com",
-  "user": "me",
+  "server": "test.com",
+  "user": "test",
   "pass": "asdasd",
   "port": 123
 }
