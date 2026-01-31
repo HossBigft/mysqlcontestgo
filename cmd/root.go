@@ -24,7 +24,7 @@ func (cfg *DBConfig) IsComplete() bool {
 	return cfg.Server != "" && cfg.User != "" && cfg.Pass != "" && cfg.Port != 0
 }
 
-const CONFIG_FILENAME = "dbcontest.json"
+const configFilename = "dbcontest.json"
 
 func loadConfig(path string) (*DBConfig, error) {
 	file, err := os.Open(path)
@@ -33,11 +33,11 @@ func loadConfig(path string) (*DBConfig, error) {
 	}
 	defer file.Close()
 
-	parsed_config := &DBConfig{}
-	if err := json.NewDecoder(file).Decode(parsed_config); err != nil {
+	parsedConfig := &DBConfig{}
+	if err := json.NewDecoder(file).Decode(parsedConfig); err != nil {
 		return nil, err
 	}
-	return parsed_config, nil
+	return parsedConfig, nil
 }
 
 func saveConfig(path string, config *DBConfig) error {
@@ -68,11 +68,11 @@ var rootCmd = &cobra.Command{
 	Short: "App to test sql connection. On first run asks connection data and saves it.",
 	Run: func(cmd *cobra.Command, args []string) {
 
-		cfg, err := loadConfig(CONFIG_FILENAME)
+		cfg, err := loadConfig(configFilename)
 		if err != nil {
 			fmt.Println("Error loading config:", err)
 		} else {
-			fmt.Println("Loaded config:", CONFIG_FILENAME)
+			fmt.Println("Loaded config:", configFilename)
 		}
 
 		if host, _ := cmd.Flags().GetString("host"); host != "" {
@@ -100,26 +100,23 @@ var rootCmd = &cobra.Command{
 				}
 			}
 
-			if err := saveConfig(CONFIG_FILENAME, cfg); err != nil {
+			if err := saveConfig(configFilename, cfg); err != nil {
 				fmt.Println("Error saving config:", err)
 			} else {
-				fmt.Println("Config saved to", CONFIG_FILENAME)
+				fmt.Println("Config saved to", configFilename)
 			}
 		}
 
-		dbserver := cfg.Server
-		dbuser := cfg.User
-		dbpass := cfg.Pass
-		dbport := cfg.Port
-		fmt.Println("DBHOST: " + dbserver)
-		fmt.Println("DBUSER: " + dbuser)
-		fmt.Println("DBPASS: " + dbpass[:3])
-		fmt.Printf("DBPORT: %v\n", dbport)
+		maskedPass := strings.Repeat("*", len(cfg.Pass))
+		fmt.Println("DBHOST: " + cfg.Server)
+		fmt.Println("DBUSER: " + cfg.User)
+		fmt.Println("DBPASS: " + maskedPass)
+		fmt.Printf("DBPORT: %v\n", cfg.Port)
 
-		dbDataSourceString := fmt.Sprintf("%s:%s@tcp(%s:%v)/", dbuser, dbpass, dbserver, dbport)
-		fmt.Println("Database DSN: " + fmt.Sprintf("%s:%s@tcp(%s:%v)/", dbuser, dbpass[:3], dbserver, dbport))
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%v)/", cfg.User, cfg.Pass, cfg.Server, cfg.Port)
+		fmt.Println("Database DSN: " + fmt.Sprintf("%s:%s@tcp(%s:%v)/", cfg.User, maskedPass, cfg.Server, cfg.Port))
 
-		dbcon, err := sql.Open("mysql", dbDataSourceString)
+		dbcon, err := sql.Open("mysql", dsn)
 		if err != nil {
 			fmt.Printf("Failed to open connection: %v\n", err)
 			return
@@ -156,7 +153,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().StringP("server", "s", "", "Database host IP/Domain")
+	rootCmd.Flags().StringP("server", "s", "", "Database server IP/Domain")
 	rootCmd.Flags().StringP("user", "u", "", "Database user")
 	rootCmd.Flags().IntP("port", "p", 0, "Database port")
 }
