@@ -6,12 +6,12 @@ import (
 	"bufio"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
 	"time"
-	"errors"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
@@ -124,7 +124,7 @@ var rootCmd = &cobra.Command{
 		fmt.Printf("DBPORT: %v\n", cfg.Port)
 
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%v)/", cfg.User, cfg.Pass, cfg.Server, cfg.Port)
-		fmt.Println("Database DSN: " + fmt.Sprintf("%s:%s@tcp(%s:%v)/", cfg.User, maskedPass, cfg.Server, cfg.Port))
+		fmt.Println("\nDatabase DSN: " + fmt.Sprintf("%s:%s@tcp(%s:%v)/", cfg.User, maskedPass, cfg.Server, cfg.Port))
 
 		address := fmt.Sprintf("%s:%d", cfg.Server, cfg.Port)
 		conn, err := net.DialTimeout("tcp", address, 5*time.Second)
@@ -165,7 +165,32 @@ var rootCmd = &cobra.Command{
 
 		fmt.Println("Connected successfully!")
 
-		fmt.Println("Printing available databases:")
+		fmt.Println("\nRunning SELECT @@port...")
+		var port int
+		err = dbcon.QueryRow("SELECT @@port").Scan(&port)
+		if err != nil {
+			fmt.Printf("Query: @@port failed: %v\n", err)
+		} else {
+			fmt.Println("MySQL is running on port:", port)
+		}
+
+		grants, err := dbcon.Query("SHOW GRANTS")
+		if err != nil {
+			fmt.Printf("Query: SHOW GRANTS failed: %v\n", err)
+		}
+		defer grants.Close()
+
+		fmt.Printf("\nGrants for %s:\n",cfg.User)
+		for grants.Next() {
+			var grant string
+			if err := grants.Scan(&grant); err != nil {
+				fmt.Printf("Error scanning grant: %v\n", err)
+				continue
+			}
+			fmt.Println(grant)
+		}
+
+		fmt.Println("\nPrinting available databases:")
 		databases, err := dbcon.Query("SHOW DATABASES")
 		if err != nil {
 			fmt.Printf("Query failed: %v", err)
