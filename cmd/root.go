@@ -146,6 +146,7 @@ var rootCmd = &cobra.Command{
 
 		fmt.Println("Connected successfully!")
 
+		fmt.Println("Printing available databases:")
 		databases, err := dbcon.Query("SHOW DATABASES")
 		if err != nil {
 			fmt.Printf("Query failed: %v", err)
