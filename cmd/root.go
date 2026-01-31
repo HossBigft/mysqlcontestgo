@@ -65,7 +65,7 @@ func promptIfEmpty(fieldName string, current string) string {
 
 var rootCmd = &cobra.Command{
 	Use:   "mysqlcontestgo",
-	Short: "App to test sql connection. On first run asks for data for connection.",
+	Short: "App to test sql connection. On first run asks connection data and saves it.",
 	Run: func(cmd *cobra.Command, args []string) {
 
 		cfg, err := loadConfig(CONFIG_FILENAME)
