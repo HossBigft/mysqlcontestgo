@@ -81,8 +81,8 @@ var rootCmd = &cobra.Command{
 				cfg = loadedConfig
 			}
 		}
-		if host, _ := cmd.Flags().GetString("host"); host != "" {
-			cfg.Server = host
+		if server, _ := cmd.Flags().GetString("server"); server != "" {
+			cfg.Server = server
 		}
 		if user, _ := cmd.Flags().GetString("user"); user != "" {
 			cfg.User = user
