@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
 )
 
@@ -123,7 +123,13 @@ var rootCmd = &cobra.Command{
 		fmt.Println("DBPASS: " + maskedPass)
 		fmt.Printf("DBPORT: %v\n", cfg.Port)
 
-		dsn := fmt.Sprintf("%s:%s@tcp(%s:%v)/", cfg.User, cfg.Pass, cfg.Server, cfg.Port)
+		dsn := fmt.Sprintf(
+			"%s:%s@tcp(%s:%v)/",
+			cfg.User,
+			cfg.Pass,
+			cfg.Server,
+			cfg.Port,
+		)
 		fmt.Println("\nDatabase DSN: " + fmt.Sprintf("%s:%s@tcp(%s:%v)/", cfg.User, maskedPass, cfg.Server, cfg.Port))
 
 		var resolvedIP string
@@ -155,6 +161,12 @@ var rootCmd = &cobra.Command{
 		fmt.Printf("Host reachable: %s:%d\n", resolvedIP, cfg.Port)
 		conn.Close()
 
+		localAddr := "unknown"
+		if conn != nil {
+			localAddr = conn.LocalAddr().String()
+		}
+		fmt.Println("Client source address:", localAddr)
+
 		dbcon, err := sql.Open("mysql", dsn)
 		if err != nil {
 			fmt.Printf("Failed to open connection: %v\n", err)
@@ -164,7 +176,15 @@ var rootCmd = &cobra.Command{
 
 		err = dbcon.Ping()
 		if err != nil {
-			fmt.Printf("Cannot connect: %v\n", err)
+			fmt.Printf("Cannot connect:\n")
+
+			var mysqlErr *mysql.MySQLError
+			if errors.As(err, &mysqlErr) {
+				fmt.Printf("MySQL error code: %d\n", mysqlErr.Number)
+				fmt.Printf("MySQL SQLState: %s\n", mysqlErr.SQLState)
+				fmt.Printf("MySQL message: %s\n", mysqlErr.Message)
+			}
+
 			return
 		}
 
