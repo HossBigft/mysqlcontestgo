@@ -11,7 +11,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -69,18 +68,46 @@ func promptIfEmpty(fieldName string, current string) string {
 	return strings.TrimSpace(input)
 }
 
-func PasswordPrompt(label string) string {
-	var s string
+func PasswordPrompt(prompt string) (string, error) {
+	const (
+		keyEnterCR   = '\r'
+		keyEnterLF   = '\n'
+		keyBackspace = 127
+		keyDel       = '\b'
+	)
+	fmt.Print(prompt)
+
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		return "", err
+	}
+	defer term.Restore(int(os.Stdin.Fd()), oldState)
+
+	var password []byte
+	buf := make([]byte, 1)
+
 	for {
-		fmt.Fprint(os.Stderr, label+" ")
-		b, _ := term.ReadPassword(int(syscall.Stdin))
-		s = string(b)
-		if s != "" {
-			break
+		_, err := os.Stdin.Read(buf)
+		if err != nil {
+			return "", err
+		}
+
+		switch buf[0] {
+		case keyEnterCR, keyEnterLF:
+			fmt.Print("\r\n")
+			return string(password), nil
+
+		case keyBackspace, keyDel:
+			if len(password) > 0 {
+				password = password[:len(password)-1]
+				fmt.Print("\b \b")
+			}
+
+		default:
+			password = append(password, buf[0])
+			fmt.Print("*")
 		}
 	}
-	fmt.Println()
-	return s
 }
 
 var rootCmd = &cobra.Command{
@@ -112,7 +139,7 @@ var rootCmd = &cobra.Command{
 			cfg.Server = promptIfEmpty("DB Host", cfg.Server)
 			cfg.User = promptIfEmpty("DB User", cfg.User)
 			if len(cfg.Pass) == 0 {
-				cfg.Pass = PasswordPrompt("DB Pass:")
+				cfg.Pass, _ = PasswordPrompt("DB Pass:")
 			}
 
 			if cfg.Port == 0 {
