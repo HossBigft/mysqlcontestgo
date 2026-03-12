@@ -11,10 +11,12 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 type DBConfig struct {
@@ -67,6 +69,20 @@ func promptIfEmpty(fieldName string, current string) string {
 	return strings.TrimSpace(input)
 }
 
+func PasswordPrompt(label string) string {
+	var s string
+	for {
+		fmt.Fprint(os.Stderr, label+" ")
+		b, _ := term.ReadPassword(int(syscall.Stdin))
+		s = string(b)
+		if s != "" {
+			break
+		}
+	}
+	fmt.Println()
+	return s
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "mysqlcontestgo",
 	Short: "App to test sql connection. On first run asks connection data and saves it.",
@@ -95,7 +111,10 @@ var rootCmd = &cobra.Command{
 
 			cfg.Server = promptIfEmpty("DB Host", cfg.Server)
 			cfg.User = promptIfEmpty("DB User", cfg.User)
-			cfg.Pass = promptIfEmpty("DB Password", cfg.Pass)
+			if len(cfg.Pass) == 0 {
+				cfg.Pass = PasswordPrompt("DB Pass:")
+			}
+
 			if cfg.Port == 0 {
 				fmt.Printf("DB Port (default 3306): ")
 				var portInput string
@@ -105,7 +124,7 @@ var rootCmd = &cobra.Command{
 						cfg.Port = p
 					}
 				} else {
-					fmt.Println("Invalid port, using default 3306")
+					fmt.Println("Using default port 3306")
 					cfg.Port = 3306
 				}
 			}
