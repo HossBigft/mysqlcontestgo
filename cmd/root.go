@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -29,7 +30,10 @@ func (cfg *DBConfig) IsComplete() bool {
 	return cfg.Server != "" && cfg.User != "" && cfg.Pass != "" && cfg.Port != 0
 }
 
-const configFilename = "dbcontest.json"
+const configFilename = "dbconConfig.json"
+
+var configDir = filepath.Join(os.Getenv("HOME"), ".config", "mysqlcontest")
+var configFilePath = filepath.Join(configDir, configFilename)
 
 func loadConfig(path string) (*DBConfig, error) {
 	file, err := os.Open(path)
@@ -46,6 +50,7 @@ func loadConfig(path string) (*DBConfig, error) {
 }
 
 func saveConfig(path string, config *DBConfig) error {
+	err := os.MkdirAll(configDir, 0755)
 	file, err := os.Create(path)
 	if err != nil {
 		return err
@@ -119,7 +124,7 @@ var rootCmd = &cobra.Command{
 		cfg := &DBConfig{}
 		var configUpdated bool = false
 		if !reconfigureFlag {
-			loadedConfig, err := loadConfig(configFilename)
+			loadedConfig, err := loadConfig(configFilePath)
 			if err == nil {
 				cfg = loadedConfig
 			}
@@ -164,11 +169,11 @@ var rootCmd = &cobra.Command{
 			configUpdated = true
 		}
 		if configUpdated {
-			err := saveConfig(configFilename, cfg)
+			err := saveConfig(configFilePath, cfg)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error saving config:%q\n", err)
+				fmt.Fprintf(os.Stderr, "Error saving config:%s\n", err)
 			} else {
-				fmt.Fprintf(os.Stderr, "Config saved to %q\n", configFilename)
+				fmt.Fprintf(os.Stderr, "Config saved to %s\n", configFilePath)
 			}
 		}
 		maskedPass := strings.Repeat("*", len(cfg.Pass))
