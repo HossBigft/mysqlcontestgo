@@ -111,7 +111,7 @@ func PasswordPrompt(prompt string) (string, error) {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "mysqlcontestgo",
+	Use:   "mysqlcontest",
 	Short: "App to test sql connection. On first run asks connection data and saves it.",
 	Run: func(cmd *cobra.Command, args []string) {
 

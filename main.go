@@ -1,6 +1,6 @@
 package main
 
-import "mysqlcontestgo/cmd"
+import "mysqlcontest/cmd"
 
 func main() {
 	cmd.Execute()
