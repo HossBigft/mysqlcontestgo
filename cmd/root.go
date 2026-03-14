@@ -63,7 +63,7 @@ func promptIfEmpty(fieldName string, current string) string {
 	}
 
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Printf("%s: ", fieldName)
+	fmt.Fprintf(os.Stderr, "%s: ", fieldName)
 	input, _ := reader.ReadString('\n')
 	return strings.TrimSpace(input)
 }
@@ -117,7 +117,7 @@ var rootCmd = &cobra.Command{
 
 		reconfigureFlag, _ := cmd.Flags().GetBool("reconfigure")
 		cfg := &DBConfig{}
-
+		var configUpdated bool = false
 		if !reconfigureFlag {
 			loadedConfig, err := loadConfig(configFilename)
 			if err == nil {
@@ -133,17 +133,23 @@ var rootCmd = &cobra.Command{
 		if port, _ := cmd.Flags().GetInt("port"); port != 0 {
 			cfg.Port = port
 		}
+		passwordFlag, _ := cmd.Flags().GetBool("password")
+
+		if passwordFlag {
+			cfg.Pass, _ = PasswordPrompt("Database Pass:")
+			configUpdated = true
+		}
 
 		if !cfg.IsComplete() {
 
-			cfg.Server = promptIfEmpty("DB Host", cfg.Server)
-			cfg.User = promptIfEmpty("DB User", cfg.User)
+			cfg.Server = promptIfEmpty("Database Host", cfg.Server)
+			cfg.User = promptIfEmpty("Database User", cfg.User)
 			if len(cfg.Pass) == 0 {
-				cfg.Pass, _ = PasswordPrompt("DB Pass:")
+				cfg.Pass, _ = PasswordPrompt("Database Pass:")
 			}
 
 			if cfg.Port == 0 {
-				fmt.Printf("DB Port (default 3306): ")
+				fmt.Fprintf(os.Stderr, "Database Port (default 3306): \n")
 				var portInput string
 				fmt.Scanln(&portInput)
 				if portInput != "" {
@@ -151,23 +157,25 @@ var rootCmd = &cobra.Command{
 						cfg.Port = p
 					}
 				} else {
-					fmt.Println("Using default port 3306")
+					fmt.Fprintf(os.Stderr, "Using default port 3306\n")
 					cfg.Port = 3306
 				}
 			}
-
-			if err := saveConfig(configFilename, cfg); err != nil {
-				fmt.Println("Error saving config:", err)
+			configUpdated = true
+		}
+		if configUpdated {
+			err := saveConfig(configFilename, cfg)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error saving config:%q\n", err)
 			} else {
-				fmt.Println("Config saved to", configFilename)
+				fmt.Fprintf(os.Stderr, "Config saved to %q\n", configFilename)
 			}
 		}
-
 		maskedPass := strings.Repeat("*", len(cfg.Pass))
-		fmt.Println("DBHOST: " + cfg.Server)
-		fmt.Println("DBUSER: " + cfg.User)
-		fmt.Println("DBPASS: " + maskedPass)
-		fmt.Printf("DBPORT: %v\n", cfg.Port)
+		fmt.Fprintf(os.Stderr, "DatabaseHOST: %s\n", cfg.Server)
+		fmt.Fprintf(os.Stderr, "DatabaseUSER: %s\n", cfg.User)
+		fmt.Fprintf(os.Stderr, "DatabasePASS: %s\n", maskedPass)
+		fmt.Fprintf(os.Stderr, "DatabasePORT: %v\n", cfg.Port)
 
 		dsn := fmt.Sprintf(
 			"%s:%s@tcp(%s:%v)/",
@@ -176,7 +184,8 @@ var rootCmd = &cobra.Command{
 			cfg.Server,
 			cfg.Port,
 		)
-		fmt.Println("\nDatabase DSN: " + fmt.Sprintf("%s:%s@tcp(%s:%v)/", cfg.User, maskedPass, cfg.Server, cfg.Port))
+		DSN := fmt.Sprintf("%s:%s@tcp(%s:%v)", cfg.User, maskedPass, cfg.Server, cfg.Port)
+		fmt.Fprintf(os.Stderr, "\nDatabase DSN: %s\n", DSN)
 
 		var resolvedIP string
 
@@ -185,93 +194,94 @@ var rootCmd = &cobra.Command{
 			if err != nil {
 				var dnsErr *net.DNSError
 				if errors.As(err, &dnsErr) {
-					fmt.Printf("DNS resolution failed for domain %s: %v\n", cfg.Server, dnsErr)
+					fmt.Fprintf(os.Stderr, "DNS resolution failed for domain %s: %v\n", cfg.Server, dnsErr)
 				} else {
-					fmt.Printf("Unknown error resolving domain %s: %v\n", cfg.Server, err)
+					fmt.Fprintf(os.Stderr, "Unknown error resolving domain %s: %v\n", cfg.Server, err)
 				}
 				return
 			}
 
-			fmt.Printf("Domain %s resolved to IP(s): %v\n", cfg.Server, ips)
+			fmt.Fprintf(os.Stderr, "Domain %s resolved to IP(s): %v\n", cfg.Server, ips)
 			resolvedIP = ips[0]
 		} else {
 			resolvedIP = cfg.Server
 		}
 
-		conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", resolvedIP, cfg.Port), 5*time.Second)
+		tcpTimeoutSeconds := 5 * time.Second
+		conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", resolvedIP, cfg.Port), tcpTimeoutSeconds)
 		if err != nil {
-			fmt.Printf("TCP connection failed to %s:%d: %v\n", resolvedIP, cfg.Port, err)
+			fmt.Fprintf(os.Stderr, "TCP connection failed to %s:%d in %f seconds: %v\n", resolvedIP, cfg.Port, tcpTimeoutSeconds.Seconds(), err)
 			return
 		}
 
-		fmt.Printf("Host reachable: %s:%d\n", resolvedIP, cfg.Port)
+		fmt.Fprintf(os.Stderr, "Host reachable: %s:%d\n", resolvedIP, cfg.Port)
 		conn.Close()
 
 		localAddr := "unknown"
 		if conn != nil {
 			localAddr = conn.LocalAddr().String()
 		}
-		fmt.Println("Client source address:", localAddr)
+		fmt.Fprintf(os.Stderr, "Client source address: %s\n", localAddr)
 
 		dbcon, err := sql.Open("mysql", dsn)
 		if err != nil {
-			fmt.Printf("Failed to open connection: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Failed to open connection: %v\n", err)
 			return
 		}
 		defer dbcon.Close()
 
 		err = dbcon.Ping()
 		if err != nil {
-			fmt.Printf("Cannot connect:\n")
+			fmt.Fprintf(os.Stderr, "Cannot connect:\n")
 
 			var mysqlErr *mysql.MySQLError
 			if errors.As(err, &mysqlErr) {
-				fmt.Printf("MySQL error code: %d\n", mysqlErr.Number)
-				fmt.Printf("MySQL SQLState: %s\n", mysqlErr.SQLState)
-				fmt.Printf("MySQL message: %s\n", mysqlErr.Message)
+				fmt.Fprintf(os.Stderr, "MySQL error code: %d\n", mysqlErr.Number)
+				fmt.Fprintf(os.Stderr, "MySQL SQLState: %s\n", mysqlErr.SQLState)
+				fmt.Fprintf(os.Stderr, "MySQL message: %s\n", mysqlErr.Message)
 			}
 
 			return
 		}
 
-		fmt.Println("Connected successfully!")
+		fmt.Fprintf(os.Stderr, "Connected successfully!")
 
-		fmt.Println("\nRunning SELECT @@port...")
+		fmt.Fprintf(os.Stderr, "\nRunning SELECT @@port...")
 		var port int
 		err = dbcon.QueryRow("SELECT @@port").Scan(&port)
 		if err != nil {
-			fmt.Printf("Query: @@port failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Query: @@port failed: %v\n", err)
 		} else {
-			fmt.Println("MySQL is running on port:", port)
+			fmt.Fprintf(os.Stderr, "MySQL is running on port: %d\n", port)
 		}
 
 		grants, err := dbcon.Query("SHOW GRANTS")
 		if err != nil {
-			fmt.Printf("Query: SHOW GRANTS failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Query: SHOW GRANTS failed: %v\n", err)
 		}
 		defer grants.Close()
 
-		fmt.Printf("\nGrants for %s:\n", cfg.User)
+		fmt.Fprintf(os.Stderr, "\nGrants for %s:\n", cfg.User)
 		for grants.Next() {
 			var grant string
 			if err := grants.Scan(&grant); err != nil {
-				fmt.Printf("Error scanning grant: %v\n", err)
+				fmt.Fprintf(os.Stderr, "Error scanning grant: %v\n", err)
 				continue
 			}
 			fmt.Println(grant)
 		}
 
-		fmt.Println("\nPrinting available databases:")
+		fmt.Fprintf(os.Stderr, "\nPrinting available databases:")
 		databases, err := dbcon.Query("SHOW DATABASES")
 		if err != nil {
-			fmt.Printf("Query failed: %v", err)
+			fmt.Fprintf(os.Stderr, "Query failed: %v", err)
 		}
 		defer databases.Close()
 
 		for databases.Next() {
 			var name string
 			databases.Scan(&name)
-			fmt.Println(" -", name)
+			fmt.Fprintf(os.Stderr, " -%s", name)
 		}
 	},
 }
@@ -286,6 +296,7 @@ func Execute() {
 func init() {
 	rootCmd.Flags().StringP("server", "s", "", "Database server IP/Domain")
 	rootCmd.Flags().StringP("user", "u", "", "Database user")
-	rootCmd.Flags().IntP("port", "p", 0, "Database port")
-	rootCmd.Flags().BoolP("reconfigure", "r", false, "Prompt for config values again")
+	rootCmd.Flags().IntP("port", "P", 0, "Database port")
+	rootCmd.Flags().BoolP("reconfigure", "r", false, "Prompt for config values")
+	rootCmd.Flags().BoolP("password", "p", false, "Prompt for password")
 }
