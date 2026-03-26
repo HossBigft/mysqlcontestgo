@@ -131,12 +131,15 @@ var rootCmd = &cobra.Command{
 		}
 		if server, _ := cmd.Flags().GetString("server"); server != "" {
 			cfg.Server = server
+			configUpdated = true
 		}
 		if user, _ := cmd.Flags().GetString("user"); user != "" {
 			cfg.User = user
+			configUpdated = true
 		}
 		if port, _ := cmd.Flags().GetInt("port"); port != 0 {
 			cfg.Port = port
+			configUpdated = true
 		}
 		passwordFlag, _ := cmd.Flags().GetBool("password")
 
@@ -251,13 +254,23 @@ var rootCmd = &cobra.Command{
 
 		fmt.Fprintf(os.Stderr, "Connected successfully!")
 
-		fmt.Fprintf(os.Stderr, "\nRunning SELECT @@port...")
+		fmt.Fprintf(os.Stderr, "\nRunning SELECT @@port...\n")
 		var port int
 		err = dbcon.QueryRow("SELECT @@port").Scan(&port)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Query: @@port failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Query: SELECT @@port failed: %v\n", err)
 		} else {
-			fmt.Fprintf(os.Stderr, "MySQL is running on port: %d\n", port)
+			fmt.Fprintf(os.Stderr, "SQL server is running on port: %d\n", port)
+		}
+
+
+		var serverHostname string
+		fmt.Fprintf(os.Stderr, "\nRunning SELECT @@hostname...\n")
+		err = dbcon.QueryRow("SELECT @@hostname").Scan(&serverHostname)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Query: SELECT @@hostname failed: %v\n", err)
+		} else {
+			fmt.Fprintf(os.Stderr, "SQL server host: %s\n", serverHostname)
 		}
 
 		grants, err := dbcon.Query("SHOW GRANTS")
