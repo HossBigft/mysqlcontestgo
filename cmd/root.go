@@ -263,7 +263,6 @@ var rootCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "SQL server is running on port: %d\n", port)
 		}
 
-
 		var serverHostname string
 		fmt.Fprintf(os.Stderr, "\nRunning SELECT @@hostname...\n")
 		err = dbcon.QueryRow("SELECT @@hostname").Scan(&serverHostname)
@@ -289,18 +288,19 @@ var rootCmd = &cobra.Command{
 			fmt.Println(grant)
 		}
 
-		fmt.Fprintf(os.Stderr, "\nPrinting available databases:")
 		databases, err := dbcon.Query("SHOW DATABASES")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Query failed: %v", err)
+		} else {
+			fmt.Fprintf(os.Stderr, "\nPrinting available databases:\n")
+			for databases.Next() {
+				var name string
+				databases.Scan(&name)
+				fmt.Fprintf(os.Stderr, "%s\n", name)
+			}
 		}
-		defer databases.Close()
 
-		for databases.Next() {
-			var name string
-			databases.Scan(&name)
-			fmt.Fprintf(os.Stderr, " -%s", name)
-		}
+		defer databases.Close()
 	},
 }
 
