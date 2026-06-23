@@ -186,7 +186,7 @@ var rootCmd = &cobra.Command{
 		fmt.Fprintf(os.Stderr, "DatabasePORT: %v\n", cfg.Port)
 
 		dsn := fmt.Sprintf(
-			"%s:%s@tcp(%s:%v)/",
+			"%s:%s@tcp(%s:%v)/?allowCleartextPasswords=true",
 			cfg.User,
 			cfg.Pass,
 			cfg.Server,
@@ -240,7 +240,7 @@ var rootCmd = &cobra.Command{
 
 		err = dbcon.Ping()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Cannot connect:\n")
+			fmt.Fprintf(os.Stderr, "Cannot connect: %v\n", err)
 
 			var mysqlErr *mysql.MySQLError
 			if errors.As(err, &mysqlErr) {
