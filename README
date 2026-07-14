@@ -1,0 +1,16 @@
+App to test sql connection. On first run asks for connection data and saves it to `$HOME/.config/mysqlcontest` in rawtext json
+
+Use `-h` to view possible arguments.
+
+Flags:
+  -h, --help            help for mysqlcontest
+  -p, --password        Prompt for password
+  -P, --port int        Database port
+  -r, --reconfigure     Prompt for config values
+  -s, --server string   Database server IP/Domain
+  -u, --user string     Database user
+
+To build binaries for main OS run
+```
+bash build.sh
+```
