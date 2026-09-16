@@ -16,6 +16,7 @@ TARGETS=(
     "windows/386"
     "linux/amd64"
     "linux/386"
+    "darwin/amd64"
 )
 
 # Loop through targets and build
