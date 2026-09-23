@@ -19,11 +19,9 @@ TARGETS=(
     "darwin/amd64"
 )
 
-# Loop through targets and build
 for target in "${TARGETS[@]}"; do
     IFS="/" read -r GOOS GOARCH <<< "$target"
 
-    # Build output file name: <basename>_<os>_<arch>[.exe]
     OUTPUT="$BUILD_DIR/${BASE_NAME}_${GOOS}_${GOARCH}"
     [ "$GOOS" = "windows" ] && OUTPUT="$OUTPUT.exe"
 

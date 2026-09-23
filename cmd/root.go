@@ -255,6 +255,15 @@ var rootCmd = &cobra.Command{
 		fmt.Fprintf(os.Stderr, "Connected successfully!")
 
 		fmt.Fprintf(os.Stderr, "\nRunning SELECT @@port...\n")
+		var dbVersion string
+		err = dbcon.QueryRow("SELECT version()").Scan(&dbVersion)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Query: SELECT version() failed: %v\n", err)
+		} else {
+			fmt.Fprintf(os.Stderr, "SQL server version is: %s\n", dbVersion)
+		}
+
+		fmt.Fprintf(os.Stderr, "\nRunning SELECT @@port...\n")
 		var port int
 		err = dbcon.QueryRow("SELECT @@port").Scan(&port)
 		if err != nil {
