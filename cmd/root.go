@@ -254,7 +254,7 @@ var rootCmd = &cobra.Command{
 
 		fmt.Fprintf(os.Stderr, "Connected successfully!")
 
-		fmt.Fprintf(os.Stderr, "\nRunning SELECT @@port...\n")
+		fmt.Fprintf(os.Stderr, "\nRunning SELECT version()...\n")
 		var dbVersion string
 		err = dbcon.QueryRow("SELECT version()").Scan(&dbVersion)
 		if err != nil {
